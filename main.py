@@ -7,6 +7,7 @@ from langchain_core.prompts import ChatPromptTemplate
 from langchain_experimental.text_splitter import SemanticChunker
 from langchain_openai.embeddings import OpenAIEmbeddings
 from langchain_openai import ChatOpenAI
+from langfuse.callback import CallbackHandler 
 from dotenv import load_dotenv
 import logging
 from fastapi.responses import PlainTextResponse
@@ -97,7 +98,7 @@ class MedicalChatbot:
     def get_medical_response(self, query: str):
         """Generate medical response using RAG"""
         try:
-            results = self.chain.invoke({"input": query})
+            results = self.chain.invoke({"input": query},config={"callbacks": [langfuse_handler]})
             return {
                 "response": results['answer'],
                 "context": [doc.page_content for doc in results['context']]
