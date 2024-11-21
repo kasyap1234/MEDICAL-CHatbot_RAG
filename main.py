@@ -37,7 +37,7 @@ class MedicalChatbot:
         Initialize the Medical Chatbot with document retrieval and RAG chain
         """
         self.document_path = document_path
-        self.llm = ChatOpenAI(model="gpt-3.5-turbo")
+        self.llm = ChatOpenAI(model="gpt-4o")
         self.retriever = self._create_retriever()
         self.chain = self._create_chain()
 
