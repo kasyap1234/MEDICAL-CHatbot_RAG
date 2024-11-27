@@ -1,69 +1,72 @@
 <script lang="ts">
     import { onMount } from 'svelte';
-    import { goto } from '$app/navigation';
-    
-    let query = '';
-    let messages: Array<{type: 'user' | 'bot', content: string, context?: string[]}> = [];
-    let loading = false;
+    import { page } from '$app/stores';
   
-    async function handleSubmit() {
-      if (!query.trim()) return;
-      
+    let messages: Array<{ text: string; isUser: boolean; context?: string[] }> = [];
+    let newMessage = '';
+    let loading = false;
+    let userId = $page.data.profile?.sub; 
+    
+  
+    async function sendMessage() {
+      if (!newMessage.trim()) return;
+  
+      const userMessage = newMessage;
+      messages = [...messages, { text: userMessage, isUser: true }];
+      newMessage = '';
       loading = true;
-      messages = [...messages, { type: 'user', content: query }];
-      
+  
       try {
-        const response = await fetch('http://localhost:8000/chat', {
+        const response = await fetch('/chat', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            'Authorization': `Bearer ${localStorage.getItem('token')}`
           },
-          body: JSON.stringify({ query })
+          body: JSON.stringify({
+            query: userMessage,
+            user_id: userId
+          })
         });
   
-        if (response.status === 401) {
-          goto('/login');
-          return;
-        }
-  
         const data = await response.json();
-        messages = [...messages, {
-          type: 'bot',
-          content: data.response,
-          context: data.context
+        messages = [...messages, { 
+          text: data.response, 
+          isUser: false,
+          context: data.context 
         }];
       } catch (error) {
-        messages = [...messages, {
-          type: 'bot',
-          content: 'Sorry, there was an error processing your request.'
+        messages = [...messages, { 
+          text: 'Sorry, there was an error processing your request.', 
+          isUser: false 
         }];
       } finally {
         loading = false;
-        query = '';
       }
     }
-  </script>
+</script>
+  <div class="flex flex-col h-screen bg-gray-100">
+    <!-- Chat Header -->
+    <div class="bg-white shadow-sm p-4">
+      <h1 class="text-xl font-semibold text-gray-800">Medical Assistant</h1>
+    </div>
   
-  <div class="max-w-4xl mx-auto p-4 h-screen flex flex-col">
-    <div class="flex-1 overflow-y-auto mb-4 p-4 border border-gray-200 rounded-lg">
+    <!-- Chat Messages -->
+    <div class="flex-1 overflow-y-auto p-4 space-y-4">
       {#each messages as message}
-        <div class="mb-4 {message.type === 'user' ? 'ml-[20%]' : 'mr-[20%]'}">
-          <div class="p-4 rounded-lg {message.type === 'user' ? 'bg-blue-50' : 'bg-gray-50'}">
-            <p class="text-gray-800">{message.content}</p>
+        <div class={`flex ${message.isUser ? 'justify-end' : 'justify-start'}`}>
+          <div class={`max-w-[70%] rounded-lg p-4 ${
+            message.isUser 
+              ? 'bg-blue-600 text-white' 
+              : 'bg-white text-gray-800 shadow'
+          }`}>
+            <p class="text-sm">{message.text}</p>
             
-            {#if message.context}
-              <div class="mt-2">
-                <details class="text-sm">
-                  <summary class="text-blue-600 cursor-pointer hover:text-blue-700">
-                    View Context
-                  </summary>
-                  <div class="mt-2 pl-4 text-gray-600">
-                    {#each message.context as ctx}
-                      <p class="mb-2">{ctx}</p>
-                    {/each}
-                  </div>
-                </details>
+            {#if message.context && message.context.length > 0}
+              <div class="mt-2 pt-2 border-t border-gray-200">
+                <p class="text-xs text-gray-500">Related Context:</p>
+                {#each message.context as contextItem}
+                  <p class="text-xs mt-1 text-gray-600">{contextItem}</p>
+                {/each}
               </div>
             {/if}
           </div>
@@ -71,27 +74,36 @@
       {/each}
       
       {#if loading}
-        <div class="text-center text-gray-500 italic">
-          Thinking...
+        <div class="flex justify-start">
+          <div class="bg-white rounded-lg p-4 shadow">
+            <div class="flex space-x-2">
+              <div class="w-2 h-2 bg-gray-400 rounded-full animate-bounce"></div>
+              <div class="w-2 h-2 bg-gray-400 rounded-full animate-bounce delay-100"></div>
+              <div class="w-2 h-2 bg-gray-400 rounded-full animate-bounce delay-200"></div>
+            </div>
+          </div>
         </div>
       {/if}
     </div>
   
-    <form on:submit|preventDefault={handleSubmit} class="flex gap-4">
-      <input
-        type="text"
-        bind:value={query}
-        placeholder="Ask a medical question..."
-        disabled={loading}
-        class="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-      />
-      <button
-        type="submit"
-        disabled={loading}
-        class="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors"
-      >
-        Send
-      </button>
-    </form>
+    <!-- Chat Input -->
+    <div class="bg-white border-t p-4">
+      <div class="flex space-x-4">
+        <textarea
+          bind:value={newMessage}
+          on:keydown={handleKeydown}
+          placeholder="Type your medical question..."
+          class="flex-1 resize-none rounded-lg border border-gray-300 p-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+          rows="2"
+        ></textarea>
+        <button
+          on:click={sendMessage}
+          disabled={loading}
+          class="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
+        >
+          Send
+        </button>
+      </div>
+    </div>
   </div>
   
